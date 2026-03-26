@@ -38,11 +38,11 @@ def render(ball_states: pd.DataFrame, metrics_ball: pd.DataFrame):
     season_df = ball_states[ball_states["season"] == sel_season]
     matches = (
         season_df.groupby("match_id")
-        .agg(home=("batting_team", "first"), away=("bowling_team", "first"), date=("date", "first"))
+        .agg(home=("batting_team", "first"), away=("bowling_team", "first"))
         .reset_index()
     )
     match_labels = {
-        row["match_id"]: f"{row['date']} | {row['home']} vs {row['away']}"
+        row["match_id"]: f"Match {row['match_id']} | {row['home']} vs {row['away']}"
         for _, row in matches.iterrows()
     }
 
@@ -164,9 +164,9 @@ def render(ball_states: pd.DataFrame, metrics_ball: pd.DataFrame):
         lev_df = pi_src[pi_src["match_id"] == sel_match].copy() if "match_id" in pi_src.columns else match_df.copy()
         lev_df["abs_wpa"] = lev_df[wpa_col].abs()
         top5 = lev_df.nlargest(5, "abs_wpa")[
-            ["over", "ball", "striker", "bowler", "batsman_runs",
+            ["over", "ball_in_over", "striker", "bowler", "batsman_runs",
              "is_wicket", wpa_col, "pressure_band"]
-        ].rename(columns={"over": "Over", "ball": "Ball", "striker": "Batter",
+        ].rename(columns={"over": "Over", "ball_in_over": "Ball", "striker": "Batter",
                            "bowler": "Bowler", "batsman_runs": "Runs",
                            "is_wicket": "Wicket", wpa_col: "WPA",
                            "pressure_band": "Pressure"})

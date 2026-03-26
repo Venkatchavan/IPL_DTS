@@ -37,10 +37,10 @@ def render(ball_states: pd.DataFrame):
     season_df = ball_states[ball_states["season"] == sel_season]
     matches   = (
         season_df.groupby("match_id")
-        .agg(teams=("batting_team", lambda x: " vs ".join(x.unique()[:2])), date=("date", "first"))
+        .agg(teams=("batting_team", lambda x: " vs ".join(x.unique()[:2])))
         .reset_index()
     )
-    match_labels = {r["match_id"]: f"{r['date']} | {r['teams']}" for _, r in matches.iterrows()}
+    match_labels = {r["match_id"]: f"Match {r['match_id']} | {r['teams']}" for _, r in matches.iterrows()}
 
     with col_m:
         sel_match = st.selectbox("Match", list(match_labels.keys()),
