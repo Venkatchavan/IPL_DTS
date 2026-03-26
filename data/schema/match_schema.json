@@ -1,0 +1,28 @@
+{
+  "description": "Schema for IPL match-level metadata (Kaggle: chaitu20/ipl-dataset2008-2025)",
+  "columns": {
+    "match_id":          { "dtype": "int64",  "nullable": false, "role": "key" },
+    "season":            { "dtype": "int64",  "nullable": false, "valid_range": [2008, 2025] },
+    "city":              { "dtype": "string", "nullable": true  },
+    "date":              { "dtype": "date",   "nullable": false },
+    "team1":             { "dtype": "string", "nullable": false },
+    "team2":             { "dtype": "string", "nullable": false },
+    "toss_winner":       { "dtype": "string", "nullable": false },
+    "toss_decision":     { "dtype": "string", "nullable": false, "valid_values": ["bat", "field"] },
+    "result":            { "dtype": "string", "nullable": true  },
+    "dl_applied":        { "dtype": "int64",  "nullable": true,  "valid_range": [0, 1] },
+    "winner":            { "dtype": "string", "nullable": true  },
+    "win_by_runs":       { "dtype": "int64",  "nullable": true  },
+    "win_by_wickets":    { "dtype": "int64",  "nullable": true  },
+    "player_of_match":   { "dtype": "string", "nullable": true  },
+    "venue":             { "dtype": "string", "nullable": false },
+    "umpire1":           { "dtype": "string", "nullable": true  },
+    "umpire2":           { "dtype": "string", "nullable": true  }
+  },
+  "notes": [
+    "winner is null for ties, no-results, and DLS matches without a result",
+    "win_by_runs > 0 means batting first team won; win_by_wickets > 0 means chasing team won",
+    "dl_applied=1 matches should be flagged and optionally excluded from chase modeling",
+    "venue column requires normalization — known aliases defined in config/venue_aliases.py"
+  ]
+}

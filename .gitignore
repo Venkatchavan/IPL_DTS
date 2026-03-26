@@ -1,0 +1,49 @@
+# ── Raw source data (Kaggle licensing — not committed) ────────────────────────
+data/raw/
+data/processed/
+
+# ── Original combined dataset (too large for git, not needed at runtime) ──────
+data/IPL.csv
+data/archive.zip
+
+# ── Generated artifacts (too large for git; produced by pipelines) ────────────
+# NOTE: data/features/ and data/metrics/ are committed (processed parquets)
+# so Streamlit Cloud can serve the dashboard without re-running pipelines.
+# Add these back to .gitignore once you use Git LFS or a data hosting service.
+
+# ── Trained model binaries ────────────────────────────────────────────────────
+models/*/model.pkl
+models/*/evaluation_metrics.json
+models/rl_strategy/transitions.parquet
+models/rl_strategy/fqi_model.pkl
+models/rl_strategy/policy_table.parquet
+models/rl_strategy/historical_win_rates.parquet
+models/rl_strategy/rl_metadata.json
+models/rl_strategy/policy_evaluation.json
+
+# ── Python artifacts ──────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# ── Virtual environment ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Secrets + local config ────────────────────────────────────────────────────
+.streamlit/secrets.toml
+.env
+*.env
+
+# ── OS artifacts ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Unrelated sub-directories ─────────────────────────────────────────────────
+Agentic_Agency_AGI/

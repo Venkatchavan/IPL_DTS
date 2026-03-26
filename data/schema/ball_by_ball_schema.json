@@ -1,0 +1,31 @@
+{
+  "description": "Schema for IPL ball-by-ball deliveries data (Kaggle: chaitu20/ipl-dataset2008-2025)",
+  "columns": {
+    "match_id":         { "dtype": "int64",   "nullable": false, "role": "key" },
+    "inning":           { "dtype": "int64",   "nullable": false, "valid_range": [1, 4] },
+    "over":             { "dtype": "int64",   "nullable": false, "valid_range": [1, 20] },
+    "ball":             { "dtype": "int64",   "nullable": false, "valid_range": [1, 10] },
+    "batsman":          { "dtype": "string",  "nullable": false },
+    "non_striker":      { "dtype": "string",  "nullable": true  },
+    "bowler":           { "dtype": "string",  "nullable": false },
+    "is_super_over":    { "dtype": "int64",   "nullable": true,  "valid_range": [0, 1] },
+    "wide_runs":        { "dtype": "int64",   "nullable": true,  "default": 0 },
+    "bye_runs":         { "dtype": "int64",   "nullable": true,  "default": 0 },
+    "legbye_runs":      { "dtype": "int64",   "nullable": true,  "default": 0 },
+    "noball_runs":      { "dtype": "int64",   "nullable": true,  "default": 0 },
+    "penalty_runs":     { "dtype": "int64",   "nullable": true,  "default": 0 },
+    "batsman_runs":     { "dtype": "int64",   "nullable": false, "valid_range": [0, 6] },
+    "extra_runs":       { "dtype": "int64",   "nullable": false, "valid_range": [0, 10] },
+    "total_runs":       { "dtype": "int64",   "nullable": false, "valid_range": [0, 10] },
+    "is_wicket":        { "dtype": "int64",   "nullable": false, "valid_range": [0, 1] },
+    "player_dismissed": { "dtype": "string",  "nullable": true  },
+    "dismissal_kind":   { "dtype": "string",  "nullable": true  },
+    "fielder":          { "dtype": "string",  "nullable": true  }
+  },
+  "notes": [
+    "over is 1-indexed in some dataset versions, 0-indexed in others — validate at load",
+    "ball column may exceed 6 on extras (wide / no-ball), track legal ball count separately",
+    "is_wicket=1 must co-occur with dismissal_kind and player_dismissed",
+    "is_super_over rows should be excluded from all standard analysis"
+  ]
+}
