@@ -33,8 +33,9 @@ PAKISTAN_NATIONAL_PLAYERS = {
     "Mohammad Aamer", "Mohammad Asif", "Umar Akmal",
 }
 
-# ── Active seasons threshold ──────────────────────────────────────────────────
-ACTIVE_SEASONS = [2023, 2024, 2025]
+# ── Activity threshold default ───────────────────────────────────────────────
+# Players whose last IPL appearance was before this year are treated as retired/inactive.
+ACTIVE_SINCE_DEFAULT = 2022  # 4 seasons back from 2026
 
 # ── Role name map ─────────────────────────────────────────────────────────────
 ROLE_NAMES = {
@@ -75,14 +76,22 @@ def _profile_radar(player_series: pd.Series, dimensions: list, title: str) -> go
     return fig
 
 
-def _get_active_players(player_feats: pd.DataFrame, player_col: str) -> set:
-    """Return set of players who appeared in recent IPL seasons (2023-2025)."""
+def _get_player_last_season(player_feats: pd.DataFrame, player_col: str) -> dict:
+    """
+    Return {player_name: last_season_int} for every player in the data.
+    Players with no season data get last_season = 0 (excluded by any threshold).
+    """
     if "season" not in player_feats.columns:
-        return set(player_feats[player_col].dropna().unique())
-    active = player_feats[
-        player_feats["season"].isin(ACTIVE_SEASONS)
-    ][player_col].dropna().unique()
-    return set(active)
+        return {}
+    valid = player_feats[[player_col, "season"]].dropna()
+    last = (
+        valid.groupby(player_col)["season"]
+        .max()
+        .astype(float)
+        .apply(lambda x: int(x) if not np.isnan(x) else 0)
+        .to_dict()
+    )
+    return last
 
 
 def render(player_feats: pd.DataFrame, metrics_player: pd.DataFrame):
@@ -98,13 +107,24 @@ def render(player_feats: pd.DataFrame, metrics_player: pd.DataFrame):
         st.warning("Cannot identify player column in features table.")
         return
 
+    # ── Pre-compute last season per player (from season-sliced rows) ──────────
+    last_season_map = _get_player_last_season(src, batter_col)  # {player: int year}
+    valid_years = sorted({y for y in last_season_map.values() if y >= 2019})
+    available_thresholds = valid_years if valid_years else [2019, 2020, 2021, 2022, 2023, 2024]
+
     # ── Filters sidebar ───────────────────────────────────────────────────────
     st.subheader("Filters")
     col_f1, col_f2, col_f3 = st.columns(3)
 
     with col_f1:
-        active_only = st.toggle("Active players only (2023–2025)", value=True,
-                                help="Show only players who featured in IPL 2023, 2024, or 2025")
+        active_since = st.select_slider(
+            "Last played in IPL (minimum year)",
+            options=available_thresholds,
+            value=min(ACTIVE_SINCE_DEFAULT, max(available_thresholds)),
+            help="Excludes players whose last IPL appearance was before this season. "
+                 "Default 2022 = active within the past 4 seasons.",
+            key="srf_active_since",
+        )
 
     with col_f2:
         exclude_pak = st.toggle("Exclude Pakistan nationals", value=True,
@@ -116,18 +136,17 @@ def render(player_feats: pd.DataFrame, metrics_player: pd.DataFrame):
             types = ["All"] + sorted(src["player_type"].dropna().unique().tolist())
             player_type_filter = st.selectbox("Player type", types, key="srf_ptype")
 
-    # Compute active player set (uses season-sliced rows)
-    active_players = _get_active_players(src, batter_col)
-
     # Work from 'overall' slice only (career aggregate, one row per player)
     if "slice" in src.columns:
         work_df = src[src["slice"] == "overall"].copy()
     else:
         work_df = src.copy()
 
-    # Apply active filter
-    if active_only and active_players:
-        work_df = work_df[work_df[batter_col].isin(active_players)]
+    # Attach last_season to every row so it shows in tables and can filter
+    work_df["last_season"] = work_df[batter_col].map(last_season_map).fillna(0).astype(int)
+
+    # Apply recency filter — excludes retired / long-inactive players
+    work_df = work_df[work_df["last_season"] >= active_since]
 
     # Apply Pakistan exclusion
     if exclude_pak:
@@ -141,9 +160,13 @@ def render(player_feats: pd.DataFrame, metrics_player: pd.DataFrame):
         st.warning("No players match the current filters.")
         return
 
-    st.caption(f"**{work_df[batter_col].nunique()} players** match current filters "
-               f"({'active 2023–2025' if active_only else 'all seasons'}"
-               f"{', excluding Pakistan nationals' if exclude_pak else ''})")
+    n_2025 = int((work_df["last_season"] == 2025).sum())
+    n_2024 = int((work_df["last_season"] == 2024).sum())
+    st.caption(
+        f"**{work_df[batter_col].nunique()} players** — "
+        f"{n_2025} played in IPL 2025, {n_2024} last played in 2024"
+        f"{' · Pakistan nationals excluded' if exclude_pak else ''}"
+    )
 
     # ── Role clustering ───────────────────────────────────────────────────────
     st.subheader("Player Role Clusters")
@@ -191,7 +214,7 @@ def render(player_feats: pd.DataFrame, metrics_player: pd.DataFrame):
         sel_role = st.selectbox("Filter by role", ["All"] + sorted(
             work_df["role_name"].dropna().unique().tolist()), key="srf_role")
         view_df = work_df if sel_role == "All" else work_df[work_df["role_name"] == sel_role]
-        display_cols = [batter_col, "role_name"] + role_cols
+        display_cols = [batter_col, "last_season", "role_name"] + role_cols
         display_cols = [c for c in display_cols if c in view_df.columns]
         st.dataframe(
             view_df[display_cols].sort_values(role_cols[0], ascending=False).head(50),
@@ -251,7 +274,7 @@ def render(player_feats: pd.DataFrame, metrics_player: pd.DataFrame):
                 sims = cosine_similarity(X_sim[p_idx:p_idx+1], X_sim)[0]
                 sim_src = sim_src.copy()
                 sim_src["similarity"] = sims
-                show_cols = [batter_col, "similarity"] + sim_dims
+                show_cols = [batter_col, "last_season", "similarity"] + sim_dims
                 if "player_type" in sim_src.columns:
                     show_cols.insert(2, "player_type")
 

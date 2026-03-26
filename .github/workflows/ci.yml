@@ -25,3 +25,40 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v --tb=short
+
+  rl-refresh:
+    runs-on: ubuntu-latest
+    # Only run on direct pushes to master/main (not PRs) and only if tests pass
+    if: github.event_name == 'push'
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Need write token to push back the generated parquets
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Re-train FQI policy
+        run: python models/rl_strategy/fqi_trainer.py
+
+      - name: Commit updated RL outputs
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add models/rl_strategy/policy_table.parquet \
+                  models/rl_strategy/historical_win_rates.parquet \
+                  models/rl_strategy/rl_metadata.json
+          # Only commit if something actually changed
+          git diff --cached --quiet || \
+            git commit -m "chore: auto-refresh RL policy [skip ci]"
+          git push
