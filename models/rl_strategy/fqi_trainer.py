@@ -114,7 +114,7 @@ def build_transitions(ball_states: pd.DataFrame) -> pd.DataFrame:
     # Infer venue tier (requires venue_features or fallback)
     inning2["venue_scoring_tier"] = "medium"  # fallback; enhanced in full pipeline
 
-    # Encode states
+    # Encode states (vectorized via apply)
     log.info("  Encoding states...")
 
     def row_to_state_dict(row):
@@ -128,12 +128,9 @@ def build_transitions(ball_states: pd.DataFrame) -> pd.DataFrame:
             "dot_ball_streak":    row.get("pre_dot_ball_streak", 0),
         }
 
-    state_keys = []
-    state_vecs = []
-    for _, row in inning2.iterrows():
-        s = row_to_state_dict(row)
-        state_keys.append(encode(s))
-        state_vecs.append(encode_vector(s))
+    state_dicts = inning2.apply(row_to_state_dict, axis=1)
+    state_keys  = [encode(s) for s in state_dicts]
+    state_vecs  = [encode_vector(s) for s in state_dicts]
 
     inning2["state_key"] = state_keys
     inning2["state_vec"] = state_vecs
@@ -211,23 +208,30 @@ def run_fqi(transitions: pd.DataFrame, n_actions: int = 3) -> object:
     Q = Q_model_class(**model_kwargs)
     Q.fit(X, y)
 
-    for iteration in range(RL_MAX_ITERATIONS):
-        # Compute Bellman targets
-        targets = []
-        for _, row in valid.iterrows():
-            if row["is_terminal"] or row["next_state_vec"] is None:
-                targets.append(float(row["reward"]))
-            else:
-                next_vec = row["next_state_vec"]
-                # Max Q across all actions
-                q_vals = []
-                for a in range(n_actions):
-                    sa = np.hstack([next_vec, np.eye(n_actions)[a]]).reshape(1, -1)
-                    q_vals.append(Q.predict(sa)[0])
-                max_q = max(q_vals)
-                targets.append(float(row["reward"]) + RL_DISCOUNT_GAMMA * max_q)
+    # Precompute next-state feature matrices for all 3 actions (vectorized Bellman)
+    next_vecs = valid["next_state_vec"].values
+    terminal  = valid["is_terminal"].values | (valid["next_state_vec"].isna().values)
+    rewards_v  = valid["reward"].values.astype(float)
+    eye3 = np.eye(n_actions)
 
-        y_new = np.array(targets, dtype=float)
+    for iteration in range(RL_MAX_ITERATIONS):
+        # Build next-state matrices for each action at once
+        non_term_mask = ~terminal
+        if non_term_mask.any():
+            next_stacked = np.vstack([v for v, t in zip(next_vecs, terminal) if not t])
+            q_next_all = np.column_stack([
+                Q.predict(np.hstack([next_stacked, np.tile(eye3[a], (len(next_stacked), 1))]))
+                for a in range(n_actions)
+            ])  # shape: (n_non_terminal, n_actions)
+            max_q_next = q_next_all.max(axis=1)
+
+        y_new = rewards_v.copy()
+        nt_idx = 0
+        for i, is_term in enumerate(terminal):
+            if not is_term:
+                y_new[i] = rewards_v[i] + RL_DISCOUNT_GAMMA * max_q_next[nt_idx]
+                nt_idx += 1
+
         Q.fit(X, y_new)
 
         if (iteration + 1) % 10 == 0:

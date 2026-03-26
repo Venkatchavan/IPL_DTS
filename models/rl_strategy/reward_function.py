@@ -104,34 +104,38 @@ def reward(
 
 def build_reward_series(ball_states: pd.DataFrame) -> pd.Series:
     """
-    Apply reward function to all inning-2 deliveries in the ball_states table.
+    Vectorized reward computation for all inning-2 deliveries.
     Returns a Series aligned to ball_states index.
-
-    Assumptions:
-      - pre_win_prob and post_win_prob columns must exist (from pipeline 05)
-      - match_won column must exist (1/0)
-      - is_terminal is proxied as pre_balls_remaining == 1 (last legal ball)
     """
     df = ball_states.copy()
     mask = df["inning"] == 2
+    inn2 = df[mask].copy()
+
+    w_runs = 0.40
+    w_wp   = 0.30
+    w_wkt  = 1.0
+    w_term = 1.0
+
+    # Component 1: runs above expected baseline
+    rrr = inn2["pre_rrr"].fillna(inn2.get("pre_crr", pd.Series(6.0, index=inn2.index))).fillna(6.0)
+    baseline   = rrr / 6.0
+    runs_delta = (inn2["batsman_runs"].fillna(0).astype(float) - baseline) * w_runs
+
+    # Component 2: win probability shift
+    pre_wp  = inn2["pre_win_prob"].fillna(np.nan)  if "pre_win_prob"  in inn2.columns else pd.Series(np.nan, index=inn2.index)
+    post_wp = inn2["post_win_prob"].fillna(np.nan) if "post_win_prob" in inn2.columns else pd.Series(np.nan, index=inn2.index)
+    wp_shift = (post_wp - pre_wp).fillna(0.0) * w_wp
+
+    # Component 3: wicket penalty
+    wicket_cost = inn2["is_wicket"].fillna(0).astype(float) * WICKET_PENALTY * w_wkt
+
+    # Component 4: terminal bonus
+    is_terminal   = (inn2["pre_balls_remaining"].fillna(99) <= 1).astype(float)
+    chase_success = inn2["match_won"].fillna(0).astype(float)
+    terminal_bonus = is_terminal * chase_success * RL_CHASE_WIN_BONUS * w_term
+
+    computed = (runs_delta + wp_shift - wicket_cost + terminal_bonus).round(4)
 
     rewards = pd.Series(np.nan, index=df.index)
-
-    for idx, row in df[mask].iterrows():
-        state = {
-            "pre_rrr": row.get("pre_rrr"),
-            "pre_crr": row.get("pre_crr"),
-        }
-        r = reward(
-            batsman_runs=int(row.get("batsman_runs", 0)),
-            extra_runs=int(row.get("extra_runs", 0)),
-            is_wicket=bool(row.get("is_wicket", 0)),
-            pre_win_prob=row.get("pre_win_prob"),
-            post_win_prob=row.get("post_win_prob"),
-            is_terminal=bool(row.get("pre_balls_remaining", 99) <= 1),
-            chase_success=bool(row.get("match_won", 0) == 1),
-            state=state,
-        )
-        rewards.loc[idx] = r
-
+    rewards.loc[inn2.index] = computed.values
     return rewards
