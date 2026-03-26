@@ -31,6 +31,8 @@ jobs:
     # Only run on direct pushes to master/main (not PRs) and only if tests pass
     if: github.event_name == 'push'
     needs: test
+    permissions:
+      contents: write   # required to git-push the refreshed parquets back
 
     steps:
       - name: Checkout code
