@@ -16,9 +16,6 @@ models/*/model.pkl
 models/*/evaluation_metrics.json
 models/rl_strategy/transitions.parquet
 models/rl_strategy/fqi_model.pkl
-models/rl_strategy/policy_table.parquet
-models/rl_strategy/historical_win_rates.parquet
-models/rl_strategy/rl_metadata.json
 models/rl_strategy/policy_evaluation.json
 
 # ── Python artifacts ──────────────────────────────────────────────────────────

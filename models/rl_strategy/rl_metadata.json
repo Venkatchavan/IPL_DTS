@@ -1,0 +1,13 @@
+{
+  "algorithm": "Fitted Q-Iteration (FQI)",
+  "discount_gamma": 0.95,
+  "iterations": 50,
+  "n_transitions": 128998,
+  "n_unique_states": 2931,
+  "action_distribution": {
+    "balanced": 81216,
+    "aggressive": 23903,
+    "conservative": 23879
+  },
+  "honest_framing": "This module estimates historically associated action quality, not causally optimal strategy. Recommendations should be treated as pattern-based priors, not guaranteed optimal plays."
+}

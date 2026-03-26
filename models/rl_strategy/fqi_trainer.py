@@ -191,7 +191,11 @@ def run_fqi(transitions: pd.DataFrame, n_actions: int = 3) -> object:
         Q_model_class = GradientBoostingRegressor
         model_kwargs = dict(n_estimators=100, learning_rate=0.1, max_depth=5, random_state=42)
 
-    valid = transitions.dropna(subset=["state_vec", "reward"]).copy()
+    # Safe null checks — state_vec column holds numpy arrays, so .isna()/.dropna()
+    # would misfire; use explicit Python-level None checks instead.
+    sv_valid_mask = np.array([x is not None for x in transitions["state_vec"].values])
+    rw_valid_mask = transitions["reward"].notna().values
+    valid = transitions[sv_valid_mask & rw_valid_mask].copy().reset_index(drop=True)
 
     # Build state-action feature matrix
     def sa_features(state_vecs, action_idxs):
@@ -210,7 +214,9 @@ def run_fqi(transitions: pd.DataFrame, n_actions: int = 3) -> object:
 
     # Precompute next-state feature matrices for all 3 actions (vectorized Bellman)
     next_vecs = valid["next_state_vec"].values
-    terminal  = valid["is_terminal"].values | (valid["next_state_vec"].isna().values)
+    # Safe None-check on object column containing numpy arrays
+    next_is_none = np.array([x is None for x in next_vecs])
+    terminal  = valid["is_terminal"].values | next_is_none
     rewards_v  = valid["reward"].values.astype(float)
     eye3 = np.eye(n_actions)
 
@@ -259,36 +265,40 @@ def build_policy_table(transitions: pd.DataFrame, Q_model) -> pd.DataFrame:
         .reset_index(name="support_count")
     )
 
-    policy_rows = []
-    unique_states = transitions["state_key"].dropna().unique()
-
-    # For states with a vec, look up Q values
+    # Build state→vec map (safe None check — state_vec is object column of arrays)
+    sv_mask = np.array([x is not None for x in transitions["state_vec"].values])
+    t_valid = transitions[sv_mask & transitions["state_key"].notna()].copy()
     state_vec_map = (
-        transitions.dropna(subset=["state_vec"])
-        .groupby("state_key")["state_vec"]
+        t_valid.groupby("state_key")["state_vec"]
         .first()
         .to_dict()
     )
 
-    for state_key in unique_states:
-        if state_key not in state_vec_map:
-            continue
-        state_vec = state_vec_map[state_key]
+    # Batch predict Q-values for all unique states at once
+    eye3 = np.eye(n_actions)
+    unique_keys  = list(state_vec_map.keys())
+    state_matrix = np.vstack([state_vec_map[k] for k in unique_keys])  # (N, state_dim)
 
-        q_vals = {}
-        for a_idx, a_label in enumerate(RL_ACTIONS):
-            sa = np.hstack([state_vec, np.eye(n_actions)[a_idx]]).reshape(1, -1)
-            q_vals[a_label] = round(float(Q_model.predict(sa)[0]), 4)
+    q_cols = {}
+    for a_idx in range(n_actions):
+        a_tile = np.tile(eye3[a_idx], (len(state_matrix), 1))
+        sa_mat  = np.hstack([state_matrix, a_tile])
+        q_cols[RL_ACTIONS[a_idx]] = Q_model.predict(sa_mat)
 
-        best_action = max(q_vals, key=q_vals.get)
+    q_matrix     = np.column_stack([q_cols[a] for a in RL_ACTIONS])  # (N, 3)
+    best_idxs    = q_matrix.argmax(axis=1)
+    best_actions = [RL_ACTIONS[i] for i in best_idxs]
 
-        policy_rows.append({
-            "state_key":          str(state_key),
-            "recommended_action": best_action,
-            "q_conservative":     q_vals.get("conservative", 0),
-            "q_balanced":         q_vals.get("balanced", 0),
-            "q_aggressive":       q_vals.get("aggressive", 0),
-        })
+    policy_rows = [
+        {
+            "state_key":          str(k),
+            "recommended_action": best_actions[i],
+            "q_conservative":     round(float(q_cols["conservative"][i]), 4),
+            "q_balanced":         round(float(q_cols["balanced"][i]), 4),
+            "q_aggressive":       round(float(q_cols["aggressive"][i]), 4),
+        }
+        for i, k in enumerate(unique_keys)
+    ]
 
     policy_df = pd.DataFrame(policy_rows)
     policy_df = policy_df.merge(
