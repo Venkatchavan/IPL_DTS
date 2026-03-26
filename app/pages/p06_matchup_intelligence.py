@@ -126,7 +126,7 @@ def render(metrics_matchup: pd.DataFrame, matchup_feats: pd.DataFrame):
             batter_fav = (
                 filt[filt[mls_col] >= threshold]
                 .sort_values(mls_col, ascending=False)
-                [([batter_col, bowler_col, mls_col] + ([balls_col] if balls_col else []))]
+                [[c for c in [batter_col, bowler_col, mls_col, balls_col] if c]]
                 .head(15)
             )
             st.dataframe(batter_fav, use_container_width=True)
@@ -136,7 +136,7 @@ def render(metrics_matchup: pd.DataFrame, matchup_feats: pd.DataFrame):
             bowler_fav = (
                 filt[filt[mls_col] <= -threshold]
                 .sort_values(mls_col, ascending=True)
-                [([batter_col, bowler_col, mls_col] + ([balls_col] if balls_col else []))]
+                [[c for c in [batter_col, bowler_col, mls_col, balls_col] if c]]
                 .head(15)
             )
             st.dataframe(bowler_fav, use_container_width=True)
