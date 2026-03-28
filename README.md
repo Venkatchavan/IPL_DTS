@@ -3,6 +3,10 @@
 > **Analyst-grade exploration of IPL 2008–2025 ball-by-ball data.**  
 > Built as a public portfolio artifact demonstrating advanced sports analytics, ML, and offline RL.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://ipl-ntelligence-system.streamlit.app/)
+
+🚀 **[https://ipl-ntelligence-system.streamlit.app/](https://ipl-ntelligence-system.streamlit.app/)**
+
 ---
 
 ## What this is

@@ -169,43 +169,43 @@ def main():
         render_home()
 
     with tabs[1]:
-        from app.pages.p01_executive_home import render
+        from app._pages.p01_executive_home import render
         render(ball_states, metrics_ball)
 
     with tabs[2]:
-        from app.pages.p02_match_state_engine import render
+        from app._pages.p02_match_state_engine import render
         render(ball_states)
 
     with tabs[3]:
-        from app.pages.p03_team_dna import render
+        from app._pages.p03_team_dna import render
         render(ball_states, team_feats)
 
     with tabs[4]:
-        from app.pages.p04_player_value import render
+        from app._pages.p04_player_value import render
         render(metrics_player)
 
     with tabs[5]:
-        from app.pages.p05_pressure_profiles import render
+        from app._pages.p05_pressure_profiles import render
         render(ball_states, player_feats)
 
     with tabs[6]:
-        from app.pages.p06_matchup_intelligence import render
+        from app._pages.p06_matchup_intelligence import render
         render(metrics_matchup, matchup_feats)
 
     with tabs[7]:
-        from app.pages.p07_decision_audit import render
+        from app._pages.p07_decision_audit import render
         render(ball_states)
 
     with tabs[8]:
-        from app.pages.p08_scouting_role_fit import render
+        from app._pages.p08_scouting_role_fit import render
         render(player_feats, metrics_player)
 
     with tabs[9]:
-        from app.pages.p09_strategy_lab import render
+        from app._pages.p09_strategy_lab import render
         render(ball_states, policy_df, hist_win_rates)
 
     with tabs[10]:
-        from app.pages.p10_methodology import render
+        from app._pages.p10_methodology import render
         render()
 
 
